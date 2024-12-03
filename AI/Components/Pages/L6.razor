@@ -1,0 +1,458 @@
+﻿@page "/l6"
+
+<div class="main">
+    <h4>Лабораторная работа 6</h4>
+
+    <div class="grid-container">
+        <!-- Основной блок для отображения всех сеток букв -->
+        @for (int letterIndex_ = 0; letterIndex_ < grids.Count; letterIndex_++)
+        {
+            var letterIndex = letterIndex_;
+            <div>
+                <h5>Буква @(letterIndex + 1)</h5>
+
+                @for (int variationIndex_ = 0; variationIndex_ < grids[letterIndex].Count; variationIndex_++)
+                {
+                    var variationIndex = variationIndex_;
+                    <div style="padding: 10px">
+                        <h6>Вариация @(variationIndex + 1)</h6>
+
+                        <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 250px; height: 350px;">
+                            @for (int row_ = 0; row_ < gridHeight; row_++)
+                            {
+                                var row = row_;
+                                @for (int col_ = 0; col_ < gridWidth; col_++)
+                                {
+                                    var col = col_;
+                                    <button class="@GetButtonClass(letterIndex, variationIndex, row, col)" @onclick="() => ToggleButtonColor(letterIndex, variationIndex, row, col)"></button>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Кнопки управления -->
+    <button class="btn btn-primary mt-2" @onclick="AddLetter">Добавить букву</button>
+    <button class="btn btn-danger mt-2" @onclick="RemoveLetter">Убрать букву</button>
+
+    <button class="btn btn-primary mt-2" @onclick="AddVariation">Добавить вариации</button>
+    <button class="btn btn-danger mt-2" @onclick="RemoveVariation">Убрать вариации</button>
+
+    <button class="btn btn-success mt-2" @onclick="TrainButtonClicked">Обучение</button>
+    <p>@learn</p>
+    <input type="checkbox" @bind="useZeroOne" />
+    <label>Использовать 0 и 1 вместо -1 и 1</label>
+
+    <div class="letter-grid">
+        <h5>Проверка</h5>
+        <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 250px; height: 350px;"
+             @ref="PixelGrid">
+            @for (int row = 0; row < gridHeight; row++)
+            {
+                var row_ = row;
+                @for (int col = 0; col < gridWidth; col++)
+                {
+
+                    var col_ = col;
+                    <button class="@GetButtonClassTest(row_, col_)" @onclick="() => ToggleButtonColorTest(row_, col_)"></button>
+                }
+            }
+        </div>
+    </div>
+
+
+
+    <button class="btn btn-success mt-2" @onclick="TestButtonClicked">Проверка</button>
+
+    <h4>Результаты тестирования</h4>
+    <div class="graph-container">
+        @for (int j = 0; j < answers.Count; j++)
+        {
+            <p>Буква @(j + 1) Значение: @answers[j]</p>
+            <div class="graph-bar @(answers[j] >= 0 ? "graph-bar-positive" : "graph-bar-negative")" style="height: @(Math.Abs(answers[j]) * 10)px;">
+                <span>@answers[j]</span>
+            </div>
+        }
+    </div>
+
+    @foreach (int Iterations in numberOfIterations)
+    {
+        <div class="variation-container">
+            <div class="similarity">Количество итераций: @Iterations</div> <!-- Мера сходства с отступом справа -->
+        </div>
+    }
+
+    @{
+        int i = 1; // Счетчик для букв
+    }
+
+    @foreach (List<Znak> gridList in grids)
+    {
+        <div class="letter-container">
+            <div class="letter-title">Буква @(i++)</div> <!-- Заголовок для буквы -->
+            @{
+                int j = 1; // Счетчик для вариаций
+            }
+
+            @foreach (Znak grid in gridList)
+            {
+                var measure_of_similarity = CalculateSimilarity(gridTest, grid);
+                <div class="variation-container">
+                    <div class="variation-title">Вариация @(j++)</div> <!-- Заголовок для вариации -->
+                    <div class="similarity">Мера сходства: @measure_of_similarity</div> <!-- Мера сходства с отступом справа -->
+                </div>
+            }
+        </div>
+    }
+
+
+</div>
+
+@code {
+    public class RandomNumberGenerator
+    {
+        public static double GetRandomNumber(int gridWidth, int gridHeight)
+        {
+            // Вычисляем границы диапазона
+            double min = 0.1 - (gridWidth * gridHeight + 1);
+            double max = 1.0 - (gridWidth * gridHeight + 1);
+
+            // Создаем объект Random
+            Random _random = new Random();
+
+            // Генерируем случайное число в диапазоне [min, max)
+            double a = _random.NextDouble() * (max - min) + min;
+
+            return a;
+        }
+    }
+
+    struct Znak
+    {
+        private int width;
+        private int height;
+        public int bias;
+        public bool[,] matrix;
+
+        public Znak(int gridWidth = 5, int gridHeight = 7)
+        {
+            bias = 1;
+            width = gridWidth;
+            height = gridHeight;
+            matrix = new bool[gridWidth, gridHeight];
+        }
+
+        // Метод для установки значения в определенную ячейку
+        public void SetValue(int row, int col, bool value)
+        {
+            if (row >= 0 && row < height && col >= 0 && col < width)
+            {
+                matrix[col, row] = value;
+            }
+        }
+
+        // Метод для получения значения из определенной ячейки
+        public bool GetValue(int row, int col)
+        {
+            if (row >= 0 && row < height && col >= 0 && col < width)
+            {
+                return matrix[col, row];
+            }
+            return false;
+        }
+
+        public double[] ToArray(bool useZeroOne)
+        {
+            // Создаем массив на 1 элемент больше для bias
+            double[] result = new double[width * height];
+
+            // Устанавливаем значение bias в первый элемент
+            // result[0] = bias;
+
+            // Заполняем остальной массив значениями матрицы
+            int index = 0;
+            for (int row = 0; row < height; row++)
+            {
+                for (int col = 0; col < width; col++)
+                {
+                    result[index++] = useZeroOne ? (matrix[col, row] ? 1 : 0) : (matrix[col, row] ? 1 : -1);
+                    // result[index] = result[index] / 2;
+                }
+            }
+
+            return result;
+        }
+    }
+
+    private ElementReference PixelGrid { get; set; }
+
+    Random random = new Random();
+    private int numberOfLetters = 1; // Количество сеток букв
+    private int numberOfVariations = 1;
+    private const int gridWidth = 5; // сетка для рисования букв
+    private const int gridHeight = 7;
+    private List<List<Znak>> grids = new List<List<Znak>>(); // Инициализация списка сеток
+    private Znak gridTest;
+    // private string? result;
+    private int measure_of_similarity;
+    private bool useZeroOne = false;
+    private List<double> answers = new List<double>();
+    private List<double> Uvh = new List<double>();
+    private List<int> numberOfIterations = new List<int>();
+    // private struct Atype {
+    //     public double[] IN, OUT;
+    //     public Atype(int _s)
+    //     {
+    //         IN = new double[_s];
+    //         OUT = new double[_s];
+    //     }
+    // }
+    private struct Ntype
+    {
+        public double[] IN, OUT, ERR;
+        public Ntype(int _s)
+        {
+            IN = new double[_s];
+            OUT = new double[_s];
+            ERR = new double[_s];
+        }
+    }
+    // private List<Ntype> A1 = new List<Ntype>();
+    // private List<Ntype> A2 = new List<Ntype>();
+    // private List<Ntype> R = new List<Ntype>();
+    //private List<List<int>> W = new List<List<int>>();
+    private List<double[]> W = new List<double[]>();
+    // private List<double[]> WR = new List<double[]>();
+    // private List<List<List<int>>> MI = new List<List<List<int>>>();
+    double thresholdA;
+    double thresholdR;
+
+    private bool learn = false;
+
+
+    // private int[] weightMatrix = new int[gridWidth * gridHeight+1];
+    private List<double[]> weightMatrices = new List<double[]>();
+
+    // Инициализация первой сетки
+    protected override void OnInitialized()
+    {
+        AddNewLetterWithVariations(numberOfVariations); // Инициализируем первую сетку
+        gridTest = new Znak(gridWidth, gridHeight); // Инициализируем тестовую сетку
+    }
+
+
+    private void AddNewLetterWithVariations(int numberOfVariations)
+    {
+        var letterVariations = new List<Znak>();
+
+        for (int i = 0; i < numberOfVariations; i++)
+        {
+            letterVariations.Add(new Znak(gridWidth, gridHeight));
+        }
+
+        grids.Add(letterVariations); // Добавляем вариации буквы в список
+
+        // Создаем новую матрицу весов для этой буквы
+        double[] newWeightMatrix = new double[gridWidth * gridHeight + 1];
+
+
+        for (int i = 0; i < newWeightMatrix.Length; i++)
+        {
+            newWeightMatrix[i] = random.NextDouble() - 0.5;  // Генерация значения от -0.5 до 0.5
+        }
+
+        weightMatrices.Add(newWeightMatrix); // Добавляем новую матрицу весов
+
+
+        // A1.Add(new Ntype(20));
+        // A2.Add(new Ntype(20));
+
+
+
+    }
+
+
+
+
+
+
+    // Метод для переключения состояния кнопки в конкретной сетке
+    private void ToggleButtonColor(int letterIndex, int variationIndex, int row, int col)
+    {
+        bool currentState = grids[letterIndex][variationIndex].GetValue(row, col);
+        grids[letterIndex][variationIndex].SetValue(row, col, !currentState);
+    }
+
+    private void ToggleButtonColorTest(int row, int col)
+    {
+        bool currentState = gridTest.GetValue(row, col);
+        gridTest.SetValue(row, col, !currentState);
+    }
+
+    // Получение класса кнопки в зависимости от состояния
+    private string GetButtonClass(int letterIndex, int variationIndex, int row, int col)
+    {
+        return grids[letterIndex][variationIndex].GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+    private string GetButtonClassTest(int row, int col)
+    {
+        return gridTest.GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+
+
+
+
+    private void AddLetter()
+    {
+        // Добавляем новую букву с одной вариацией
+        AddNewLetterWithVariations(numberOfVariations);
+        numberOfLetters++;
+    }
+
+    private void RemoveLetter()
+    {
+        if (numberOfLetters > 1) // Не удаляем последнюю оставшуюся букву
+        {
+            grids.RemoveAt(grids.Count - 1); // Удаляем последнюю букву и все ее вариации
+            numberOfLetters--;
+        }
+    }
+
+
+    private void AddVariation()
+    {
+        foreach (var letterVariations in grids)
+        {
+            letterVariations.Add(new Znak(gridWidth, gridHeight)); // Добавляем вариацию ко всем буквам
+        }
+        numberOfVariations++; // Увеличиваем счетчик вариаций
+    }
+
+    private void RemoveVariation()
+    {
+        if (grids.Count > 0 && grids.All(letterVariations => letterVariations.Count > 1)) // Проверяем, есть ли хотя бы одна вариация у всех букв
+        {
+            foreach (var letterVariations in grids)
+            {
+                letterVariations.RemoveAt(letterVariations.Count - 1); // Удаляем последнюю вариацию у всех букв
+            }
+            numberOfVariations--; // Уменьшаем счетчик вариаций
+        }
+    }
+
+    private double g(double Uvh)
+    {
+        return Uvh > 0 ? Uvh : 0;
+    }
+
+    private double gz(double Uvh)
+    {
+        if (Uvh <= 0)
+        {
+            return 0;
+        }
+        else if (0 <= Uvh && Uvh <= 10)
+        {
+            return Uvh * 0.1;
+        } else
+        {
+            return Uvh;
+        }
+    }
+
+    private void TrainButtonClicked()
+    {
+
+        W = grids.Select(g => g[0].ToArray(useZeroOne).Select(x => x / 2.0).ToArray()).ToList();
+
+
+    }
+
+
+    private void TestButtonClicked()
+    {
+        answers.Clear();
+        double b = (gridWidth * gridHeight) / 2.0;
+        double eps = (1.0 / numberOfLetters);
+        var Uvh_z = new List<double>();
+        var Uvh_a = new List<double>();
+        var Uvih_z = new List<double>();
+        var Uvih_a = new List<double>();
+        var Uvh_y = new List<double>();
+
+
+        for (int i = 0; i < numberOfLetters; i++)
+        {
+            double sum = b; // Инициализируем sum значением b
+            for (int j = 0; j < W[i].Length; j++)
+            {
+                double[] gridTestArray = gridTest.ToArray(useZeroOne);
+                sum += W[i][j] * gridTestArray[j];
+            }
+            Uvh_z.Add(sum);
+        }
+
+
+        for (int i = 0; i < Uvh_z.Count; i++)
+        {
+            Uvih_z.Add(gz(Uvh_z[i]));
+        }
+
+        Uvh_a = Uvih_z;
+
+        
+        while (Uvh_a.Count(x => Math.Abs(x) > 1e-9) > 1)
+        {
+            var temp = Uvh_a.ToList();
+            for (int i = 0; i < numberOfLetters; i++)
+            {
+                double sum = 0;
+                for (int j = 0; j < numberOfLetters; j++)
+                {
+                    if (i != j)
+                    {
+                        sum += Uvh_a[j];
+                    }
+                }
+                temp[i] = g(Uvh_a[i] - eps * sum);
+            }
+            Uvh_a = temp;
+        }
+        
+
+
+        for (int i = 0; i < numberOfLetters; i++)
+        {
+            answers.Add(Uvh_a[i] > 0 ? 1 : 0);
+        }
+    }
+
+
+    private int CalculateSimilarity(Znak grid1, Znak grid2)
+    {
+        if (grid1.matrix.GetLength(0) != grid2.matrix.GetLength(0) ||
+            grid1.matrix.GetLength(1) != grid2.matrix.GetLength(1))
+        {
+            throw new ArgumentException("Grid dimensions must match.");
+        }
+
+        int similarityCount = 0;
+        for (int row = 0; row < grid1.matrix.GetLength(1); row++)
+        {
+            for (int col = 0; col < grid1.matrix.GetLength(0); col++)
+            {
+                if (grid1.matrix[col, row] == grid2.matrix[col, row])
+                {
+                    similarityCount++;
+                }
+            }
+        }
+        return similarityCount;
+    }
+
+}

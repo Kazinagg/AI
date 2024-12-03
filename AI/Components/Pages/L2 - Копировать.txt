@@ -1,0 +1,499 @@
+﻿
+
+<div class="main">
+    <h4>Лабораторная работа 1</h4>
+
+    <div class="grid-container">
+        <!-- Основной блок для отображения всех сеток букв -->
+        @for (int letterIndex_ = 0; letterIndex_ < grids.Count; letterIndex_++)
+        {
+            var letterIndex = letterIndex_;
+            <div>
+                <h5>Буква @(letterIndex + 1)</h5>
+
+                @for (int variationIndex_ = 0; variationIndex_ < grids[letterIndex].Count; variationIndex_++)
+                {
+                    var variationIndex = variationIndex_;
+                    <div style="padding: 10px">
+                        <h6>Вариация @(variationIndex + 1)</h6>
+
+                        <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 250px; height: 350px;">
+                            @for (int row_ = 0; row_ < gridHeight; row_++)
+                            {
+                                var row = row_;
+                                @for (int col_ = 0; col_ < gridWidth; col_++)
+                                {
+                                    var col = col_;
+                                    <button class="@GetButtonClass(letterIndex, variationIndex, row, col)" @onclick="() => ToggleButtonColor(letterIndex, variationIndex, row, col)"></button>
+                                }
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Кнопки управления -->
+    <button class="btn btn-primary mt-2" @onclick="AddLetter">Добавить букву</button>
+    <button class="btn btn-danger mt-2" @onclick="RemoveLetter">Убрать букву</button>
+
+    <button class="btn btn-primary mt-2" @onclick="AddVariation">Добавить вариации</button>
+    <button class="btn btn-danger mt-2" @onclick="RemoveVariation">Убрать вариации</button>
+
+    <button class="btn btn-success mt-2" @onclick="TrainButtonClicked">Обучение</button>
+    <input type="checkbox" @bind="useZeroOne" />
+    <label>Использовать 0 и 1 вместо -1 и 1</label>
+
+    <div class="letter-grid">
+        <h5>Проверка</h5>
+        <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 250px; height: 350px;"
+             @ref="PixelGrid">
+            @for (int row = 0; row < gridHeight; row++)
+            {
+                var row_ = row;
+                @for (int col = 0; col < gridWidth; col++)
+                {
+
+                    var col_ = col;
+                    <button class="@GetButtonClassTest(row_, col_)" @onclick="() => ToggleButtonColorTest(row_, col_)"></button>
+                }
+            }
+        </div>
+    </div>
+
+
+
+    <button class="btn btn-success mt-2" @onclick="TestButtonClicked">Проверка</button>
+
+    @for (int j = 0; j < weightMatrices.Count; j++)
+    {
+        <div>
+            <h5>График для буквы @(j + 1)</h5>
+            <div style="width: 50px; height: @(answer * 10)px; background-color: blue;"></div>
+        </div>
+    }
+
+    <h4>Результаты тестирования</h4>
+    <div class="graph-container">
+        @for (int j = 0; j < weightMatrices.Count; j++)
+        {
+            <div class="graph-bar" style="height: @(answer * 10)px;">
+                Буква @(j + 1)
+            </div>
+        }
+    </div>
+
+    @if (result != null)
+    {
+        <p>Результат: @result</p>
+    }
+
+    @if (answer != 0)
+    {
+        <p>S: @answer</p>
+    }
+
+
+    @{
+        int i = 1; // Счетчик для букв
+    }
+
+    @foreach (List<Zrak> gridList in grids)
+    {
+        <div class="letter-container">
+            <div class="letter-title">Буква @(i++)</div> <!-- Заголовок для буквы -->
+            @{
+                int j = 1; // Счетчик для вариаций
+            }
+
+            @foreach (Zrak grid in gridList)
+            {
+                var measure_of_similarity = CalculateSimilarity(gridTest, grid);
+                <div class="variation-container">
+                    <div class="variation-title">Вариация @(j++)</div> <!-- Заголовок для вариации -->
+                    <div class="similarity">Мера сходства: @measure_of_similarity</div> <!-- Мера сходства с отступом справа -->
+                </div>
+            }
+        </div>
+    }
+
+
+</div>
+
+@code {
+    struct Zrak
+    {
+        private int width;
+        private int height;
+        public int bias;
+        public bool[,] matrix;
+
+        public Zrak(int gridWidth = 5, int gridHeight = 7)
+        {
+            bias = 1;
+            width = gridWidth;
+            height = gridHeight;
+            matrix = new bool[gridWidth, gridHeight];
+        }
+
+        // Метод для установки значения в определенную ячейку
+        public void SetValue(int row, int col, bool value)
+        {
+            if (row >= 0 && row < height && col >= 0 && col < width)
+            {
+                matrix[col, row] = value;
+            }
+        }
+
+        // Метод для получения значения из определенной ячейки
+        public bool GetValue(int row, int col)
+        {
+            if (row >= 0 && row < height && col >= 0 && col < width)
+            {
+                return matrix[col, row];
+            }
+            return false;
+        }
+
+        public int[] ToArray(bool useZeroOne)
+        {
+            if (useZeroOne)
+            {
+                return matrix.Cast<bool>().Select(b => b ? 1 : 0).ToArray();
+            }
+            else
+            {
+                return matrix.Cast<bool>().Select(b => b ? 1 : -1).ToArray();
+            }
+        }
+    }
+
+    private ElementReference PixelGrid { get; set; }
+
+    private int numberOfLetters = 1; // Количество сеток букв
+    private int numberOfVariations = 1;
+    private const int gridWidth = 5; // сетка для рисования букв
+    private const int gridHeight = 7;
+    private List<List<Zrak>> grids = new List<List<Zrak>>(); // Инициализация списка сеток
+    private Zrak gridTest;
+    private string? result;
+    private int measure_of_similarity;
+    private bool useZeroOne = false;
+    int answer = 0;
+
+    // private int[] weightMatrix = new int[gridWidth * gridHeight+1];
+    private List<int[]> weightMatrices = new List<int[]>();
+
+    // Инициализация первой сетки
+    protected override void OnInitialized()
+    {
+        AddNewLetterWithVariations(numberOfVariations); // Инициализируем первую сетку
+        gridTest = new Zrak(gridWidth, gridHeight); // Инициализируем тестовую сетку
+    }
+
+
+    private void AddNewLetterWithVariations(int numberOfVariations)
+    {
+        var letterVariations = new List<Zrak>();
+
+        for (int i = 0; i < numberOfVariations; i++)
+        {
+            letterVariations.Add(new Zrak(gridWidth, gridHeight));
+        }
+
+        grids.Add(letterVariations); // Добавляем вариации буквы в список
+
+        // Создаем новую матрицу весов для этой буквы
+        int[] newWeightMatrix = new int[gridWidth * gridHeight + 1];
+        weightMatrices.Add(newWeightMatrix); // Добавляем новую матрицу весов
+    }
+
+
+
+
+
+
+    // Метод для переключения состояния кнопки в конкретной сетке
+    private void ToggleButtonColor(int letterIndex, int variationIndex, int row, int col)
+    {
+        bool currentState = grids[letterIndex][variationIndex].GetValue(row, col);
+        grids[letterIndex][variationIndex].SetValue(row, col, !currentState);
+    }
+
+    private void ToggleButtonColorTest(int row, int col)
+    {
+        bool currentState = gridTest.GetValue(row, col);
+        gridTest.SetValue(row, col, !currentState);
+    }
+
+    // Получение класса кнопки в зависимости от состояния
+    private string GetButtonClass(int letterIndex, int variationIndex, int row, int col)
+    {
+        return grids[letterIndex][variationIndex].GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+    private string GetButtonClassTest(int row, int col)
+    {
+        return gridTest.GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+
+
+
+
+    private void AddLetter()
+    {
+        // Добавляем новую букву с одной вариацией
+        AddNewLetterWithVariations(numberOfVariations);
+        numberOfLetters++;
+    }
+
+    private void RemoveLetter()
+    {
+        if (numberOfLetters > 1) // Не удаляем последнюю оставшуюся букву
+        {
+            grids.RemoveAt(grids.Count - 1); // Удаляем последнюю букву и все ее вариации
+            numberOfLetters--;
+        }
+    }
+
+
+    private void AddVariation()
+    {
+        foreach (var letterVariations in grids)
+        {
+            letterVariations.Add(new Zrak(gridWidth, gridHeight)); // Добавляем вариацию ко всем буквам
+        }
+        numberOfVariations++; // Увеличиваем счетчик вариаций
+    }
+
+    private void RemoveVariation()
+    {
+        if (grids.Count > 0 && grids.All(letterVariations => letterVariations.Count > 1)) // Проверяем, есть ли хотя бы одна вариация у всех букв
+        {
+            foreach (var letterVariations in grids)
+            {
+                letterVariations.RemoveAt(letterVariations.Count - 1); // Удаляем последнюю вариацию у всех букв
+            }
+            numberOfVariations--; // Уменьшаем счетчик вариаций
+        }
+    }
+
+
+
+
+
+
+    private void TrainButtonClicked()
+    {
+
+        // Создаем словарь для хранения результатов
+        var trainingData = new Dictionary<int, List<int[]>>();
+
+        // Проходим по каждой сетке (букве)
+        for (int letterIndex = 0; letterIndex < grids.Count; letterIndex++)
+        {
+            trainingData[letterIndex] = new List<int[]>();
+            // Получаем все вариации текущей буквы
+            var letterVariations = grids[letterIndex];
+
+            // Проходим по каждой вариации буквы
+            for (int variationIndex = 0; variationIndex < letterVariations.Count; variationIndex++)
+            {
+                // Получаем текущую сетку (вариацию буквы)
+                var grid = letterVariations[variationIndex];
+
+                // Создаем массив для хранения значений сетки (закрашенные 1, белые -1)
+                var gridArray = grid.ToArray(useZeroOne);
+
+                // Добавляем bias в начало массива
+                var data = new int[gridArray.Length + 1];
+                data[0] = grid.bias;
+                gridArray.CopyTo(data, 1);
+
+                // Добавляем данные в словарь, где ключ - номер буквы (начиная с 0),
+                // а значение - массив с bias и значениями сетки
+
+                trainingData[letterIndex].Add(data);
+            }
+        }
+
+
+        for (int i = 0; i < numberOfLetters; i++) // Итерируем по каждой букве
+        {
+            var currentWeightMatrix = weightMatrices[i]; // Берем матрицу весов для текущей буквы
+
+            // Обновляем веса для вариаций текущей буквы
+            foreach (var zrak in grids[i])
+            {
+                // Преобразуем сетку в массив с использованием ToArray
+                var gridArray = zrak.ToArray(useZeroOne);
+
+                for (int j = 0; j < gridArray.Length; j++)
+                {
+                    currentWeightMatrix[j] += gridArray[j] * 1; // Вариации текущей буквы
+                }
+            }
+
+            // Обновляем веса для других букв
+            for (int k = 0; k < numberOfLetters; k++)
+            {
+                if (k == i) continue; // Пропускаем текущую букву
+
+                foreach (var zrak in grids[k])
+                {
+                    // Преобразуем сетку в массив с использованием ToArray
+                    var gridArray = zrak.ToArray(useZeroOne);
+
+                    for (int j = 0; j < gridArray.Length; j++)
+                    {
+                        currentWeightMatrix[j] += gridArray[j] * -1; // Вариации других букв
+                    }
+                }
+            }
+        }
+
+        // foreach (int[] m in trainingData[0])
+        // {
+        //     for (int i = 0; i < m.Length - 1; i++)
+        //     {
+        //         weightMatrix[i] += m[i] * 1;
+        //     }
+        // }
+
+        // foreach (int[] m in trainingData[1])
+        // {
+        //     for (int i = 0; i < m.Length - 1; i++)
+        //     {
+        //         weightMatrix[i] += m[i] * -1;
+        //     }
+        // }
+
+    }
+
+    private void TestButtonClicked()
+    {
+        answer = 0;
+        var gridArrayTest = gridTest.ToArray(useZeroOne);
+
+        // Добавляем bias в начало массива
+        var data = new int[gridArrayTest.Length + 1];
+        data[0] = 1; // bias
+        gridArrayTest.CopyTo(data, 1);
+
+        // Переменная для хранения максимального совпадения
+        int maxSimilarity = int.MinValue;
+        int bestLetterIndex = -1;
+
+        // Проходим по всем буквам (нейронам)
+        for (int i = 0; i < numberOfLetters; i++)
+        {
+            var currentWeightMatrix = weightMatrices[i];
+            int similarity = 0;
+
+            // Вычисляем скалярное произведение (сравнение) для тестовой сетки и матрицы весов
+            for (int j = 0; j < currentWeightMatrix.Length; j++)
+            {
+                similarity += currentWeightMatrix[j] * data[j];
+            }
+
+            // Если текущее значение лучше, обновляем результат
+            if (similarity > maxSimilarity)
+            {
+                maxSimilarity = similarity;
+                bestLetterIndex = i;
+            }
+        }
+
+        // Результат наибольшей меры сходства
+        answer = maxSimilarity;
+        result = $"Наиболее похожая буква: {bestLetterIndex + 1}";
+    }
+
+
+    // private void TestButtonClicked()
+    // {
+    //     answer = 0;
+    //     var gridArrayTest = gridTest.ToArray(useZeroOne);
+
+    //     var data = new int[gridArrayTest.Length + 1];
+    //     data[0] = 1;
+    //     gridArrayTest.CopyTo(data, 1);
+
+    //     нужно вывесли графики для кадлой буквы(чем больше answer тем больше столбец у буквы)
+
+    //     // for (int i = 0; i < weightMatrix.Length; i++)
+    //     // {
+    //     //     answer += weightMatrix[i] * data[i];
+    //     // }
+
+    //     // // Определение результата
+    //     // if (answer > 0)
+    //     // {
+    //     //     result = "Распознана первая буква";
+    //     // }
+    //     // else if (answer < 0)
+    //     // {
+    //     //     result = "Распознана вторая буква";
+    //     // }
+    //     // else
+    //     // {
+    //     //     result = "Не удалось определить букву";
+    //     // }
+
+    //     // double y;
+
+    //     // y = (1) / (1 + Math.Pow(2.71828, -1 * (answer + 2.4999) * 0.3724));
+
+    //     // if (y < 0.1)
+    //     // {
+    //     //     result = "Распознана явторая буква при y = " + y;
+    //     // }
+    //     // else if (y > 0.9)
+    //     // {
+    //     //     result = "Распознана перва буква при y = " + y;
+    //     // }
+    //     // else
+    //     // {
+    //     //     result = "Не удалось определить букву при y = " + y;
+    //     // }
+
+    //     // if (answer < -8.4)
+    //     // {
+    //     //     result = "Распознана первая буква";
+    //     // }
+    //     // else if (answer > 3.4)
+    //     // {
+    //     //     result = "Распознана вторая буква";
+    //     // }
+    //     // else
+    //     // {
+    //     //     result = "Не удалось определить букву";
+    //     // }
+    // }
+
+
+    private int CalculateSimilarity(Zrak grid1, Zrak grid2)
+    {
+        if (grid1.matrix.GetLength(0) != grid2.matrix.GetLength(0) ||
+            grid1.matrix.GetLength(1) != grid2.matrix.GetLength(1))
+        {
+            throw new ArgumentException("Grid dimensions must match.");
+        }
+
+        int similarityCount = 0;
+        for (int row = 0; row < grid1.matrix.GetLength(1); row++)
+        {
+            for (int col = 0; col < grid1.matrix.GetLength(0); col++)
+            {
+                if (grid1.matrix[col, row] == grid2.matrix[col, row])
+                {
+                    similarityCount++;
+                }
+            }
+        }
+        return similarityCount;
+    }
+
+}

@@ -1,0 +1,458 @@
+﻿@page "/l8"
+
+<div class="main">
+    <h4>Лабораторная работа 8</h4>
+
+    <div class="grid-container">
+        @for (int letterIndex = 0; letterIndex < grids.Count; letterIndex++)
+        {
+            <div>
+                <h5>Буква @(letterIndex + 1)</h5>
+                    <div style="padding: 10px">
+
+                        <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 350px; height: 350px;">
+                            @for (int row = 0; row < gridHeight; row++)
+                            {
+                                @for (int col = 0; col < gridWidth; col++)
+                                {
+                                    <button class="@GetButtonClass(letterIndex, row, col)" @onclick="() => ToggleButtonColor(letterIndex, row, col)"></button>
+                                }
+                            }
+                        </div>
+                    </div>
+            </div>
+        }
+    </div>
+
+    <button class="btn btn-success mt-2" @onclick="TrainButtonClicked">Обучение</button>
+    <p>@(learn ? "Обучено" : "")</p>
+    <input type="checkbox" @bind="useZeroOne" />
+    <label>Использовать 0 и 1 вместо -1 и 1</label>
+
+    <h5>Тестовые примеры буквы "Ф"</h5>
+    <div class="grid-container">
+        @for (int i = 0; i < gridTest.Count; i++) // не Пропускаем оригинальную букву
+        {
+            <div style="padding: 10px">
+                <h6>Пример @(i)</h6>
+                <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 350px; height: 350px;">
+                    @for (int row = 0; row < gridHeight; row++)
+                    {
+                        @for (int col = 0; col < gridWidth; col++)
+                        {
+                            <button class="@GetButtonClassTest(i, row, col)"></button>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </div>
+
+    <button class="btn btn-success mt-2" @onclick="TestButtonClicked">Проверка</button>
+    <h4>Результаты тестирования</h4>
+    <div class="graph-container">
+        @for (int i = 0; i < gridRes.Count; i++)
+        {
+            <div style="padding: 10px">
+                <h6>Результат @(i)</h6>
+                <div style="display: grid; grid-template-columns: repeat(@gridWidth, 1fr); grid-template-rows: repeat(@gridHeight, 1fr); width: 350px; height: 350px;">
+                    @for (int row = 0; row < gridHeight; row++)
+                    {
+                        @for (int col = 0; col < gridWidth; col++)
+                        {
+                            <button class="@GetButtonClassRes(i, row, col)"></button>
+                        }
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+
+@code {
+
+    struct Znak
+    {
+        public bool[,] matrix;
+
+        public Znak(int gridWidth, int gridHeight)
+        {
+            matrix = new bool[gridWidth, gridHeight];
+        }
+
+        public void SetValue(int row, int col, bool value)
+        {
+            if (row >= 0 && row < matrix.GetLength(1) && col >= 0 && col < matrix.GetLength(0))
+            {
+                matrix[col, row] = value;
+            }
+        }
+
+        public bool GetValue(int row, int col)
+        {
+            if (row >= 0 && row < matrix.GetLength(1) && col >= 0 && col < matrix.GetLength(0))
+            {
+                return matrix[col, row];
+            }
+            return false;
+        }
+
+        public double[] ToArray(bool useZeroOne)
+        {
+            double[] result = new double[matrix.GetLength(0) * matrix.GetLength(1)];
+            int index = 0;
+            for (int row = 0; row < matrix.GetLength(1); row++)
+            {
+                for (int col = 0; col < matrix.GetLength(0); col++)
+                {
+                    result[index++] = useZeroOne ? (matrix[col, row] ? 1 : 0) : (matrix[col, row] ? 1 : -1);
+                }
+            }
+            return result;
+        }
+    }
+
+
+    private const int gridWidth = 10;
+    private const int gridHeight = 10;
+    private List<Znak> grids = new();
+    private List<Znak> gridTest = new();
+    private List<Znak> gridRes = new();
+    private bool useZeroOne = false;
+    private List<double> answers = new();
+    private List<double[]> W = new();
+    private bool learn = false;
+
+
+
+    protected override void OnInitialized()
+    {
+        InitializeDefaultGrids();
+        InitializeDefaultTestGrids();
+    }
+
+
+    // private void AddNewLetterWithVariations()
+    // {
+    //     grids.Add(Enumerable.Range(0, numberOfVariations).Select(i => new Znak(gridWidth, gridHeight)).ToList());
+    // }
+
+    private void InitializeDefaultGrids()
+    {
+        grids.Clear();
+        grids.Add(CreateLetterF());
+        grids.Add(CreateLetterR());
+        grids.Add(CreateLetterO());
+        grids.Add(CreateLetterL());
+        grids.Add(CreateLetterV());
+    }
+
+    private Znak CreateLetterF()
+    {
+        var znak = new Znak(gridWidth, gridHeight);
+
+        // Центральная вертикальная палка (толще)
+        for (int i = 0; i <= 10; i++)
+        {
+            znak.SetValue(i, 4, true);
+            znak.SetValue(i, 5, true); // Утолщение
+        }
+
+        //л
+        for (int i = 2; i <= 4; i++)
+        {
+            znak.SetValue(i, 0, true);
+            znak.SetValue(i, 1, true); // Утолщение
+        }
+
+        //р
+        for (int i = 2; i <= 4; i++)
+        {
+            znak.SetValue(i, 8, true);
+            znak.SetValue(i, 9, true); // Утолщение
+        }
+
+        // Горизонтальная линия в центре
+        for (int j = 0; j <= 10; j++)
+        {
+            znak.SetValue(4, j, true);
+            znak.SetValue(5, j, true); // Утолщение
+        }
+
+        // Горизонтальная линия л
+        for (int j = 0; j <= 10; j++)
+        {
+            znak.SetValue(0, j, true);
+            znak.SetValue(1, j, true); // Утолщение
+        }
+
+        return znak;
+    }
+
+
+    private Znak CreateLetterR()
+    {
+        var znak = new Znak(gridWidth, gridHeight);
+
+        // Левая вертикальная палка (толще)
+        for (int i = 0; i < 10; i++)
+        {
+            znak.SetValue(i, 0, true);
+            znak.SetValue(i, 1, true); // Утолщение
+        }
+
+        // Верхняя горизонтальная линия
+        for (int j = 0; j <= 7; j++)
+        {
+            znak.SetValue(0, j, true);
+            znak.SetValue(1, j, true); // Утолщение
+        }
+
+        // Правая вертикальная линия "кольца"
+        for (int i = 0; i <= 5; i++)
+        {
+            znak.SetValue(i, 8, true);
+            znak.SetValue(i, 9, true); // Утолщение
+        }
+
+        // Горизонтальная линия в центре
+        for (int j = 0; j <= 7; j++)
+        {
+            znak.SetValue(4, j, true);
+            znak.SetValue(5, j, true); // Утолщение
+        }
+
+        return znak;
+    }
+
+
+    private Znak CreateLetterO()
+    {
+        var znak = new Znak(gridWidth, gridHeight);
+
+        // Верхняя горизонтальная линия
+        for (int j = 2; j <= 7; j++)
+        {
+            znak.SetValue(0, j, true);
+            znak.SetValue(1, j, true); // Утолщение
+        }
+
+        // Нижняя горизонтальная линия
+        for (int j = 2; j <= 7; j++)
+        {
+            znak.SetValue(8, j, true);
+            znak.SetValue(9, j, true); // Утолщение
+        }
+
+        // Левая вертикальная линия
+        for (int i = 2; i <= 7; i++)
+        {
+            znak.SetValue(i, 0, true);
+            znak.SetValue(i, 1, true); // Утолщение
+        }
+
+        // Правая вертикальная линия
+        for (int i = 2; i <= 7; i++)
+        {
+            znak.SetValue(i, 8, true);
+            znak.SetValue(i, 9, true); // Утолщение
+        }
+
+        return znak;
+    }
+
+
+    private Znak CreateLetterL()
+    {
+        var znak = new Znak(gridWidth, gridHeight);
+
+        // Левая вертикальная линия (толще)
+        for (int i = 4; i < 10; i++)
+        {
+            znak.SetValue(i, 0, true);
+            znak.SetValue(i, 1, true); // Утолщение
+        }
+
+        // Р вертикальная линия (толще)
+        for (int i = 4; i < 10; i++)
+        {
+            znak.SetValue(i, 8, true);
+            znak.SetValue(i, 9, true); // Утолщение
+        }
+
+        // Наклонная линия вверх
+        for (int i = 0; i < 5; i++)
+        {
+            znak.SetValue(i, i + 4, true);
+            znak.SetValue(i, i + 5, true); // Утолщение
+        }
+
+        for (int i = 0; i < 5; i++)
+        {
+            int j = 5 - 1 - i;
+            znak.SetValue(i, j, true);
+            znak.SetValue(i, j+1, true); // Утолщение
+        }
+
+        return znak;
+    }
+
+
+
+    private Znak CreateLetterV()
+    {
+        var znak = new Znak(gridWidth, gridHeight);
+
+        // Левая вертикальная линия (толще)
+        for (int i = 0; i < 10; i++)
+        {
+            znak.SetValue(i, 0, true);
+            znak.SetValue(i, 1, true); // Утолщение
+        }
+
+        // правая вертикальная линия (толще)
+        for (int i = 2; i < 8; i++)
+        {
+            znak.SetValue(i, 8, true);
+            znak.SetValue(i, 9, true); // Утолщение
+        }
+
+        // Верхнее кольцо
+        for (int j = 2; j <= 7; j++)
+        {
+            znak.SetValue(0, j, true);
+            znak.SetValue(1, j, true); // Утолщение
+            znak.SetValue(4, j, true);
+            znak.SetValue(5, j, true); // Утолщение
+        }
+
+        // Нижнее кольцо
+        for (int j = 2; j <= 7; j++)
+        {
+            znak.SetValue(9, j, true);
+            znak.SetValue(8, j, true); // Утолщение
+        }
+
+        return znak;
+    }
+
+
+
+    private void InitializeDefaultTestGrids()
+    {
+        gridTest.Clear();
+        var baseF = CreateLetterV();
+        var testVariations = GenerateTestVariations(baseF);
+        gridTest.AddRange(testVariations);
+    }
+
+    private void ToggleButtonColor(int letterIndex, int row, int col)
+    {
+        grids[letterIndex].SetValue(row, col, !grids[letterIndex].GetValue(row, col));
+    }
+
+    private void ToggleButtonColorTest(int letterIndex, int row, int col)
+    {
+        gridTest[letterIndex].SetValue(row, col, !gridTest[letterIndex].GetValue(row, col));
+    }
+
+
+    private string GetButtonClass(int letterIndex, int row, int col)
+    {
+        return grids[letterIndex].GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+    private string GetButtonClassTest(int letterIndex, int row, int col)
+    {
+        return gridTest[letterIndex].GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+    private string GetButtonClassRes(int letterIndex, int row, int col)
+    {
+        return gridRes[letterIndex].GetValue(row, col) ? "button-pik-act" : "button-pik-notact";
+    }
+
+
+    private void TrainButtonClicked()
+    {
+        W = Enumerable.Range(0, gridWidth * gridHeight)
+            .Select(i => Enumerable.Range(0, gridWidth * gridHeight)
+                .Select(_ => 0.0).ToArray()) // Заменяем случайные значения на 0.0
+            .ToList();
+
+        for (int n = 0; n < grids.Count; n++)
+            for (int i = 0; i < gridWidth * gridHeight; i++)
+                for (int j = 0; j < gridWidth * gridHeight; j++)
+                    W[i][j] += i == j ? 0 : grids[n].ToArray(useZeroOne)[i] * grids[n].ToArray(useZeroOne)[j];
+
+        learn = true;
+    }
+
+    private List<Znak> GenerateTestVariations(Znak baseLetter)
+    {
+        var variations = new List<Znak>();
+        for (int i = 0; i <= 10; i++)
+        {
+            double similarity = i / 10.0; // От 100% до 0%
+            var variation = new Znak(gridWidth, gridHeight);
+
+            for (int row = 0; row < gridHeight; row++)
+            {
+                for (int col = 0; col < gridWidth; col++)
+                {
+                    // Генерация с вероятностью "similarity"
+                    bool originalValue = baseLetter.GetValue(row, col);
+                    variation.SetValue(row, col, Random.Shared.NextDouble() < similarity ? originalValue : !originalValue);
+                }
+            }
+            variations.Add(variation);
+        }
+        return variations;
+    }
+
+    private void TestButtonClicked()
+    {
+        for (int n = 0; n < gridTest.Count; n++)
+        {
+            double c = 0;
+            // var variation = new Znak(gridWidth, gridHeight);
+            List<double> previousVariation = new();
+            List<double> currentVariation = new();
+            while (true)
+            {
+                previousVariation = currentVariation;
+                for (int i = 0; i < gridWidth * gridHeight; i++)
+                {
+                    c = 0;
+                    for (int j = 0; j < gridWidth * gridHeight; j++)
+                    {
+                        c += gridTest[n].ToArray(useZeroOne)[j] * W[i][j];
+                    }
+                    currentVariation.Add(c < 0 ? -1 : c > 0 ? 1 : c);
+                }
+
+                if (previousVariation.SequenceEqual(currentVariation)) break;
+            }
+
+            var znak = new Znak(gridWidth, gridHeight);
+
+            for (int i = 0; i < gridHeight; i++)
+            {
+                for (int j = 0; j < gridWidth; j++)
+                {
+                    int index = i * gridWidth + j; // Calculate the correct index
+                    znak.SetValue(i, j, currentVariation[index] == 1); // Convert double to bool
+                }
+
+            }
+
+
+
+            gridRes.Add(znak);
+        }
+
+
+    }
+
+}

@@ -1,0 +1,76 @@
+﻿body {
+}
+
+.button-pik-act {
+    width: 100%;
+    height: 100%;
+    border-radius: 0; /* Убираем закругления */
+    padding: 0;
+    margin: 0;
+    background-color: black;
+    border-color: aliceblue;
+/*    border: 1px solid #ccc;*/
+}
+
+.button-pik-notact {
+    width: 100%;
+    height: 100%;
+    border-radius: 0; /* Убираем закругления */
+    padding: 0;
+    margin: 0;
+    border-color: aliceblue;
+    /*    border: 1px solid #ccc;*/
+}
+
+.main{
+    margin: 30px;
+}
+
+.grid-container {
+    display: flex;
+}
+
+.letter-grid {
+    margin-right: 20px;
+}
+
+
+.letter-container {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 20px;
+}
+
+.letter-title {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.variation-container {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.variation-title {
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+.similarity {
+/*    margin-left: auto;
+    font-style: italic;*/
+}
+
+.graph-container {
+    display: flex;
+    justify-content: space-between;
+}
+
+.graph-bar {
+    width: 50px;
+    background-color: blue;
+    margin-right: 10px;
+    text-align: center;
+    color: white;
+}
